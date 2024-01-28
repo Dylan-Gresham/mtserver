@@ -7,6 +7,20 @@ use std::{
     time::Duration,
 };
 
+/// Handles each incoming stream
+///
+/// Accepts GET / and GET /sleep HTTP requests
+/// The GET / request sends a request back with an HTML page saying hi.
+///
+/// The GET /sleep request sleeps for 5 seconds then sends a request back
+/// with the HTML page saying hi.
+///
+/// Any other URI results in a 404 request being sent back and an HTML page
+/// with an error message
+///
+/// # Panics
+///
+/// This method can panic in several areas and will be getting handled soon.
 fn handle_connection(mut stream: TcpStream) {
     let buf_reader = BufReader::new(&mut stream);
     let request_line = buf_reader.lines().next().unwrap().unwrap();
@@ -32,11 +46,13 @@ fn main() {
     let listener = TcpListener::bind("127.0.0.1:7878").unwrap();
     let pool: ThreadPool = ThreadPool::new(10);
 
-    for stream in listener.incoming() {
+    for stream in listener.incoming().take(2) {
         let stream = stream.unwrap();
 
         pool.execute(|| {
             handle_connection(stream);
         });
     }
+
+    println!("Shutting down.");
 }
