@@ -60,14 +60,19 @@ impl ThreadPool {
     ///
     /// # Panics
     ///
-    /// Awaiting proper handling.
+    /// If the sender of the ThreadPool is invalidated or if there was an issue
+    /// putting the job into the channel.
     pub fn execute<F>(&self, f: F)
     where
         F: FnOnce() + Send + 'static,
     {
         let job = Box::new(f);
 
-        self.sender.as_ref().unwrap().send(job).unwrap();
+        self.sender
+            .as_ref()
+            .expect("Unable to get the sender as a reference.")
+            .send(job)
+            .expect("Unable to put the job in the channel");
     }
 }
 
@@ -79,7 +84,9 @@ impl Drop for ThreadPool {
             println!("Shutting down worker {}", worker.id);
 
             if let Some(thread) = worker.thread.take() {
-                thread.join().unwrap();
+                thread
+                    .join()
+                    .unwrap_or_else(|_| println!("Error dropping {}", worker.id));
             }
         }
     }
@@ -99,7 +106,8 @@ impl Worker {
     ///
     /// # Panics
     ///
-    /// Awaiting explicit handling.
+    /// This function will panic if another Worker or the ThreadPool panics
+    /// and causes the Mutex and/or Receiver to be invalidated.
     fn new(id: usize, receiver: Arc<Mutex<mpsc::Receiver<Job>>>) -> Self {
         let thread = thread::spawn(move || loop {
             let message = receiver

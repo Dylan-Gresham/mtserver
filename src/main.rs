@@ -47,7 +47,10 @@ fn main() {
     let pool: ThreadPool = ThreadPool::new(10);
 
     for stream in listener.incoming().take(2) {
-        let stream = stream.unwrap();
+        let stream = match stream {
+            Ok(stream) => stream,
+            Err(e) => panic!("Error listening to 127.0.0.1:7878 - {}", e),
+        };
 
         pool.execute(|| {
             handle_connection(stream);
